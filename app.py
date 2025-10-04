@@ -7,16 +7,34 @@ import os
 
 app = Flask(__name__)
 
-# Load model once at startup
+# Load model with better error handling
 print("="*60)
 print("Loading trained CNN model...")
+
+model = None
 try:
+    # Try loading .keras format first (Keras 3)
     from tensorflow.keras.models import load_model
-    model = load_model('mnist_cnn_model.h5')
-    print("✓ Model loaded successfully!")
+    try:
+        model = load_model('mnist_cnn_model.keras')
+        print("✓ Model loaded from mnist_cnn_model.keras")
+    except:
+        # Fall back to .h5 format
+        model = load_model('mnist_cnn_model.h5', compile=False)
+        # Recompile the model
+        model.compile(
+            optimizer='adam',
+            loss='categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        print("✓ Model loaded from mnist_cnn_model.h5 and recompiled")
+    
     print(f"Model input shape: {model.input_shape}")
+    print("="*60)
+    
 except Exception as e:
     print(f"✗ Error loading model: {e}")
+    print("="*60)
     model = None
 
 @app.route('/')
@@ -36,7 +54,7 @@ def predict():
     if model is None:
         return jsonify({
             'success': False,
-            'error': 'Model not loaded'
+            'error': 'Model not loaded. Please contact administrator.'
         }), 500
     
     try:
@@ -93,6 +111,5 @@ def predict():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Get port from environment variable (Render sets this)
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
