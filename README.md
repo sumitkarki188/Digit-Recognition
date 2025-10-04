@@ -32,26 +32,26 @@ A deep learning web application that recognizes handwritten digits (0-9) using a
 
 Model: Sequential CNN
 
-Layer (type) Output Shape Param #
-conv2d (Conv2D) (None, 26, 26, 64) 640
-activation (Activation) (None, 26, 26, 64) 0
-max_pooling2d (MaxPooling2D) (None, 13, 13, 64) 0
-conv2d_1 (Conv2D) (None, 11, 11, 64) 36928
-activation_1 (Activation) (None, 11, 11, 64) 0
-max_pooling2d_1 (MaxPooling) (None, 5, 5, 64) 0
-conv2d_2 (Conv2D) (None, 3, 3, 64) 36928
-activation_2 (Activation) (None, 3, 3, 64) 0
-max_pooling2d_2 (MaxPooling) (None, 1, 1, 64) 0
-flatten (Flatten) (None, 64) 0
-dense (Dense) (None, 64) 4160
-activation_3 (Activation) (None, 64) 0
-dense_1 (Dense) (None, 32) 2080
-activation_4 (Activation) (None, 32) 0
-dense_2 (Dense) (None, 10) 330
-activation_5 (Activation) (None, 10) 0
-Total params: 81,066
-Trainable params: 81,066
-Non-trainable params: 0
+Layer (type) Output Shape Param #  
+conv2d (Conv2D) (None, 26, 26, 64) 640  
+activation (Activation) (None, 26, 26, 64) 0  
+max_pooling2d (MaxPooling2D) (None, 13, 13, 64) 0  
+conv2d_1 (Conv2D) (None, 11, 11, 64) 36928  
+activation_1 (Activation) (None, 11, 11, 64) 0  
+max_pooling2d_1 (MaxPooling) (None, 5, 5, 64) 0  
+conv2d_2 (Conv2D) (None, 3, 3, 64) 36928  
+activation_2 (Activation) (None, 3, 3, 64) 0  
+max_pooling2d_2 (MaxPooling) (None, 1, 1, 64) 0  
+flatten (Flatten) (None, 64) 0  
+dense (Dense) (None, 64) 4160  
+activation_3 (Activation) (None, 64) 0  
+dense_1 (Dense) (None, 32) 2080  
+activation_4 (Activation) (None, 32) 0  
+dense_2 (Dense) (None, 10) 330  
+activation_5 (Activation) (None, 10) 0  
+Total params: 81,066  
+Trainable params: 81,066  
+Non-trainable params: 0  
 
 **Performance Metrics:**
 - Test Accuracy: **98.76%**
@@ -61,16 +61,16 @@ Non-trainable params: 0
 ## 📁 Project Structure
 
 digit-recognition/
-├── app.py # Flask application
-├── mnist_cnn_model.h5 # Trained CNN model
-├── requirements.txt # Python dependencies
-├── templates/
-│ └── index.html # Frontend HTML
-├── static/
-│ ├── style.css # Styling
-│ └── script.js # JavaScript logic
-├── README.md # Project documentation
-└── .gitignore # Git ignore rules
+├── app.py # Flask application  
+├── mnist_cnn_model.h5 # Trained CNN model  
+├── requirements.txt # Python dependencies  
+├── templates/  
+│ └── index.html # Frontend HTM  
+├── static/  
+│ ├── style.css # Styling  
+│ └── script.js # JavaScript logic  
+├── README.md # Project documentation  
+└── .gitignore # Git ignore rules  
 
 ## 🔧 Installation & Setup
 
@@ -152,51 +152,6 @@ git push origin main
 3. **Access deployed app**
 https://your-app-name.onrender.com
 
-## 🔍 API Endpoints
-
-### `GET /`
-Returns the main web application interface.
-
-### `POST /predict`
-Accepts image data and returns digit prediction.
-
-**Request Body (Canvas Drawing):**
-{
-"image": "data:image/png;base64,iVBORw0KGgoAAAANS..."
-}
-
-**Request Body (File Upload):**
-Content-Type: multipart/form-data
-file: <image_file>
-
-**Response:**
-{
-"success": true,
-"digit": 7,
-"confidence": 99.87,
-"probabilities": {
-"0": 0.01,
-"1": 0.08,
-"2": 0.02,
-"3": 0.00,
-"4": 0.01,
-"5": 0.00,
-"6": 0.00,
-"7": 99.87,
-"8": 0.00,
-"9": 0.01
-}
-}
-
-### `GET /health`
-Health check endpoint.
-
-**Response:**
-{
-"status": "healthy",
-"model_loaded": true
-}
-
 ## 🧪 Usage Examples
 
 ### Drawing on Canvas
@@ -239,43 +194,3 @@ Health check endpoint.
 - [ ] Optimize model for faster inference
 - [ ] Add batch prediction for multiple images
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 Author
-
-**Your Name**
-- GitHub: [@YOUR_USERNAME](https://github.com/YOUR_USERNAME)
-- LinkedIn: [Your LinkedIn](https://linkedin.com/in/your-profile)
-- Email: your.email@example.com
-
-## 🙏 Acknowledgments
-
-- **MNIST Dataset**: Yann LeCun, Corinna Cortes, and Christopher J.C. Burges
-- **TensorFlow/Keras**: Google Brain Team
-- **Flask**: Pallets Projects
-- **Inspiration**: Fast.ai and Stanford CS231n courses
-
-## 📚 References
-
-- [MNIST Database](http://yann.lecun.com/exdb/mnist/)
-- [TensorFlow Documentation](https://www.tensorflow.org/)
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [Convolutional Neural Networks](https://cs231n.github.io/convolutional-networks/)
-
----
-
-⭐ **Star this repo** if you find it helpful!
-
-Made with ❤️ and Python
