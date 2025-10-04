@@ -1,29 +1,43 @@
 from flask import Flask, render_template, request, jsonify
-import keras
 import numpy as np
 from PIL import Image
 import io
 import base64
+import os
 
 app = Flask(__name__)
 
+# Load model once at startup
 print("="*60)
 print("Loading trained CNN model...")
 try:
-    model = keras.models.load_model('mnist_cnn_model.h5')
+    from tensorflow.keras.models import load_model
+    model = load_model('mnist_cnn_model.h5')
     print("✓ Model loaded successfully!")
+    print(f"Model input shape: {model.input_shape}")
 except Exception as e:
-    print(f"✗ Error: {e}")
+    print(f"✗ Error loading model: {e}")
     model = None
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/health')
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'model_loaded': model is not None
+    })
+
 @app.route('/predict', methods=['POST'])
 def predict():
     if model is None:
-        return jsonify({'success': False, 'error': 'Model not loaded'}), 500
+        return jsonify({
+            'success': False,
+            'error': 'Model not loaded'
+        }), 500
     
     try:
         # Handle file upload
@@ -45,7 +59,7 @@ def predict():
         else:
             return jsonify({'success': False, 'error': 'No image data'}), 400
         
-        # Preprocess
+        # Preprocess image
         img_array = np.array(img.resize((28, 28), Image.LANCZOS))
         
         # Invert if white background
@@ -74,8 +88,11 @@ def predict():
     
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    print("Server: http://localhost:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Get port from environment variable (Render sets this)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
