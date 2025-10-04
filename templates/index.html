@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handwritten Digit Recognition</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>✍️ Handwritten Digit Recognition</h1>
+        <p class="subtitle">Draw or upload a digit (0-9) for recognition</p>
+        
+        <!-- Tab Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('draw')">Draw Digit</button>
+            <button class="tab-btn" onclick="showTab('upload')">Upload Image</button>
+        </div>
+        
+        <!-- Draw Tab -->
+        <div id="draw-tab" class="tab-content active">
+            <div class="canvas-container">
+                <canvas id="canvas" width="280" height="280"></canvas>
+            </div>
+            <div class="button-group">
+                <button id="clear-btn" class="btn btn-secondary">Clear Canvas</button>
+                <button id="predict-draw-btn" class="btn btn-primary">Predict</button>
+            </div>
+        </div>
+        
+        <!-- Upload Tab -->
+        <div id="upload-tab" class="tab-content">
+            <div class="upload-container">
+                <input type="file" id="file-input" accept="image/*" hidden>
+                <label for="file-input" class="upload-box">
+                    <div class="upload-content">
+                        <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>Click to upload digit image</p>
+                        <span class="file-info">PNG, JPG (max. 5MB)</span>
+                    </div>
+                </label>
+                <div id="preview-container" style="display: none;">
+                    <img id="preview-image" alt="Preview">
+                    <button id="predict-upload-btn" class="btn btn-primary">Predict</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div id="result-section" class="result-section" style="display: none;">
+            <h2>Prediction Result</h2>
+            <div class="prediction-display">
+                <div class="predicted-digit" id="predicted-digit">?</div>
+                <div class="confidence-text">
+                    Confidence: <span id="confidence">0%</span>
+                </div>
+            </div>
+            
+            <!-- Probability Chart -->
+            <div class="probabilities">
+                <h3>All Probabilities</h3>
+                <div id="probability-bars"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/script.js"></script>
+</body>
+</html>
