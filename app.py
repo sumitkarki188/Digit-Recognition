@@ -7,6 +7,7 @@ import os
 
 app = Flask(__name__)
 
+<<<<<<< HEAD
 # Load model once at startup
 print("="*60)
 print("Loading CNN model...")
@@ -21,13 +22,41 @@ try:
     print("✓ Model loaded successfully!")
     print(f"Model input shape: {model.input_shape}")
     print(f"Model output shape: {model.output_shape}")
+=======
+# Load model with better error handling
+print("="*60)
+print("Loading trained CNN model...")
+
+model = None
+try:
+    # Try loading .keras format first (Keras 3)
+    from tensorflow.keras.models import load_model
+    try:
+        model = load_model('mnist_cnn_model.keras')
+        print("✓ Model loaded from mnist_cnn_model.keras")
+    except:
+        # Fall back to .h5 format
+        model = load_model('mnist_cnn_model.h5', compile=False)
+        # Recompile the model
+        model.compile(
+            optimizer='adam',
+            loss='categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        print("✓ Model loaded from mnist_cnn_model.h5 and recompiled")
+    
+    print(f"Model input shape: {model.input_shape}")
+>>>>>>> f5b64e03120ab29aa370ac01613f8149112314b4
     print("="*60)
     
 except Exception as e:
     print(f"✗ Error loading model: {e}")
     print("="*60)
+<<<<<<< HEAD
     import traceback
     traceback.print_exc()
+=======
+>>>>>>> f5b64e03120ab29aa370ac01613f8149112314b4
     model = None
 
 @app.route('/')
@@ -79,6 +108,7 @@ def predict():
             img = Image.open(io.BytesIO(img_bytes)).convert('L')
             print("Canvas drawing received")
         
+<<<<<<< HEAD
         else:
             return jsonify({
                 'success': False,
@@ -87,6 +117,9 @@ def predict():
         
         # Preprocess image
         # Resize to 28x28
+=======
+        # Preprocess image
+>>>>>>> f5b64e03120ab29aa370ac01613f8149112314b4
         img_array = np.array(img.resize((28, 28), Image.LANCZOS))
         
         # Invert colors if white background (MNIST has white digits on black bg)
@@ -123,6 +156,7 @@ def predict():
         })
     
     except Exception as e:
+<<<<<<< HEAD
         print(f"Error during prediction: {e}")
         import traceback
         traceback.print_exc()
@@ -143,4 +177,13 @@ if __name__ == '__main__':
     print("Press CTRL+C to quit")
     print("="*60 + "\n")
     
+=======
+        print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+>>>>>>> f5b64e03120ab29aa370ac01613f8149112314b4
     app.run(host='0.0.0.0', port=port, debug=False)
