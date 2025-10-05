@@ -187,7 +187,6 @@ def predict():
         })
 
 if __name__ == '__main__':
-    # Train the model once when the app starts
     print("=" * 50)
     print("INITIALIZING DIGIT RECOGNITION APP")
     print("=" * 50)
@@ -196,4 +195,7 @@ if __name__ == '__main__':
     print("Model ready! Starting Flask server...")
     print("=" * 50)
     
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    # Get port from environment variable (Render uses this)
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
