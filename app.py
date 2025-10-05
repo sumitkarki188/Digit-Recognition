@@ -1,189 +1,199 @@
 from flask import Flask, render_template, request, jsonify
 import numpy as np
-from PIL import Image
-import io
+import cv2
 import base64
-import os
+from tensorflow import keras
+from tensorflow.keras import layers
+import tensorflow as tf
 
 app = Flask(__name__)
 
-<<<<<<< HEAD
-# Load model once at startup
-print("="*60)
-print("Loading CNN model...")
-
+# Global variable to store the trained model
 model = None
-try:
-    import tensorflow as tf
-    print(f"TensorFlow version: {tf.__version__}")
-    
-    # Load the model
-    model = tf.keras.models.load_model('mnist_model.keras')
-    print("✓ Model loaded successfully!")
-    print(f"Model input shape: {model.input_shape}")
-    print(f"Model output shape: {model.output_shape}")
-=======
-# Load model with better error handling
-print("="*60)
-print("Loading trained CNN model...")
 
-model = None
-try:
-    # Try loading .keras format first (Keras 3)
-    from tensorflow.keras.models import load_model
-    try:
-        model = load_model('mnist_cnn_model.keras')
-        print("✓ Model loaded from mnist_cnn_model.keras")
-    except:
-        # Fall back to .h5 format
-        model = load_model('mnist_cnn_model.h5', compile=False)
-        # Recompile the model
-        model.compile(
-            optimizer='adam',
-            loss='categorical_crossentropy',
-            metrics=['accuracy']
-        )
-        print("✓ Model loaded from mnist_cnn_model.h5 and recompiled")
+def train_model_once():
+    """Train a CNN model once when the application starts"""
+    global model
     
-    print(f"Model input shape: {model.input_shape}")
->>>>>>> f5b64e03120ab29aa370ac01613f8149112314b4
-    print("="*60)
+    print("Loading MNIST dataset...")
+    # Load MNIST dataset
+    (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
     
-except Exception as e:
-    print(f"✗ Error loading model: {e}")
-    print("="*60)
-<<<<<<< HEAD
-    import traceback
-    traceback.print_exc()
-=======
->>>>>>> f5b64e03120ab29aa370ac01613f8149112314b4
-    model = None
+    # Preprocess the data - reshape for CNN (add channel dimension)
+    x_train = x_train.reshape(-1, 28, 28, 1).astype('float32') / 255.0
+    x_test = x_test.reshape(-1, 28, 28, 1).astype('float32') / 255.0
+    
+    # Create CNN model for better accuracy
+    print("Building CNN architecture...")
+    model = keras.Sequential([
+        # First Convolutional Block
+        layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+        layers.BatchNormalization(),
+        layers.Conv2D(32, (3, 3), activation='relu'),
+        layers.BatchNormalization(),
+        layers.MaxPooling2D((2, 2)),
+        layers.Dropout(0.25),
+        
+        # Second Convolutional Block
+        layers.Conv2D(64, (3, 3), activation='relu'),
+        layers.BatchNormalization(),
+        layers.Conv2D(64, (3, 3), activation='relu'),
+        layers.BatchNormalization(),
+        layers.MaxPooling2D((2, 2)),
+        layers.Dropout(0.25),
+        
+        # Dense Layers
+        layers.Flatten(),
+        layers.Dense(256, activation='relu'),
+        layers.BatchNormalization(),
+        layers.Dropout(0.5),
+        layers.Dense(128, activation='relu'),
+        layers.BatchNormalization(),
+        layers.Dropout(0.5),
+        layers.Dense(10, activation='softmax')
+    ])
+    
+    model.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=0.001),
+        loss='sparse_categorical_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    print("Training CNN model... This will take a few minutes.")
+    # Train the model with data augmentation
+    datagen = keras.preprocessing.image.ImageDataGenerator(
+        rotation_range=10,
+        width_shift_range=0.1,
+        height_shift_range=0.1,
+        zoom_range=0.1
+    )
+    
+    datagen.fit(x_train)
+    
+    model.fit(
+        datagen.flow(x_train, y_train, batch_size=128),
+        epochs=10,
+        validation_data=(x_test, y_test),
+        verbose=1
+    )
+    
+    # Evaluate the model
+    test_loss, test_accuracy = model.evaluate(x_test, y_test, verbose=0)
+    print(f"Model trained! Test accuracy: {test_accuracy*100:.2f}%")
+    
+    return model
+
+def preprocess_image(image_data):
+    """Enhanced preprocessing for better accuracy"""
+    # Decode base64 image
+    image_data = image_data.split(',')[1]
+    image_bytes = base64.b64decode(image_data)
+    
+    # Convert to numpy array
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+    
+    # Apply Gaussian blur to reduce noise
+    img = cv2.GaussianBlur(img, (5, 5), 0)
+    
+    # Apply adaptive thresholding for better binarization
+    img = cv2.adaptiveThreshold(
+        img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+        cv2.THRESH_BINARY_INV, 11, 2
+    )
+    
+    # Find contours to get the digit bounding box
+    contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    if contours:
+        # Get the largest contour (assumed to be the digit)
+        largest_contour = max(contours, key=cv2.contourArea)
+        x, y, w, h = cv2.boundingRect(largest_contour)
+        
+        # Add padding
+        padding = 20
+        x = max(0, x - padding)
+        y = max(0, y - padding)
+        w = min(img.shape[1] - x, w + 2 * padding)
+        h = min(img.shape[0] - y, h + 2 * padding)
+        
+        # Crop the digit
+        digit = img[y:y+h, x:x+w]
+    else:
+        digit = img
+    
+    # Resize to fit in 20x20 box while maintaining aspect ratio
+    h, w = digit.shape
+    if h > w:
+        new_h = 20
+        new_w = int(20 * w / h)
+    else:
+        new_w = 20
+        new_h = int(20 * h / w)
+    
+    digit_resized = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    
+    # Create 28x28 image with the digit centered
+    final_img = np.zeros((28, 28), dtype=np.uint8)
+    y_offset = (28 - new_h) // 2
+    x_offset = (28 - new_w) // 2
+    final_img[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = digit_resized
+    
+    # Apply morphological operations to clean the image
+    kernel = np.ones((2, 2), np.uint8)
+    final_img = cv2.morphologyEx(final_img, cv2.MORPH_CLOSE, kernel)
+    
+    # Normalize
+    final_img = final_img.astype('float32') / 255.0
+    
+    # Reshape for CNN (add batch and channel dimensions)
+    final_img = final_img.reshape(1, 28, 28, 1)
+    
+    return final_img
 
 @app.route('/')
 def index():
-    """Render main application page"""
     return render_template('index.html')
-
-@app.route('/health')
-def health():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'model_loaded': model is not None
-    })
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Handle prediction requests"""
-    
-    if model is None:
-        return jsonify({
-            'success': False,
-            'error': 'Model not loaded. Please contact administrator.'
-        }), 500
-    
     try:
-        # Handle file upload
-        if 'file' in request.files:
-            file = request.files['file']
-            if file.filename == '':
-                return jsonify({
-                    'success': False,
-                    'error': 'No file selected'
-                }), 400
-            
-            img = Image.open(file.stream).convert('L')
-            print("File uploaded")
+        # Get image data from request
+        data = request.get_json()
+        image_data = data['image']
         
-        # Handle canvas drawing (base64)
-        elif request.json and 'image' in request.json:
-            img_data = request.json['image']
-            
-            # Remove data URL prefix
-            if ',' in img_data:
-                img_data = img_data.split(',')[1]
-            
-            # Decode base64
-            img_bytes = base64.b64decode(img_data)
-            img = Image.open(io.BytesIO(img_bytes)).convert('L')
-            print("Canvas drawing received")
-        
-<<<<<<< HEAD
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'No image data received'
-            }), 400
-        
-        # Preprocess image
-        # Resize to 28x28
-=======
-        # Preprocess image
->>>>>>> f5b64e03120ab29aa370ac01613f8149112314b4
-        img_array = np.array(img.resize((28, 28), Image.LANCZOS))
-        
-        # Invert colors if white background (MNIST has white digits on black bg)
-        if np.mean(img_array) > 127:
-            img_array = 255 - img_array
-            print("Image colors inverted")
-        
-        # Normalize pixel values to 0-1
-        img_array = img_array.astype('float32') / 255.0
-        
-        # Reshape to match model input: (1, 28, 28, 1)
-        img_array = img_array.reshape(1, 28, 28, 1)
+        # Preprocess the image
+        processed_image = preprocess_image(image_data)
         
         # Make prediction
-        predictions = model.predict(img_array, verbose=0)
-        
-        # Get predicted digit and confidence
-        predicted_digit = int(np.argmax(predictions[0]))
-        confidence = float(np.max(predictions[0]) * 100)
+        prediction = model.predict(processed_image, verbose=0)
+        predicted_digit = np.argmax(prediction[0])
+        confidence = float(prediction[0][predicted_digit]) * 100
         
         # Get all probabilities
-        all_predictions = {
-            str(i): float(predictions[0][i] * 100) 
-            for i in range(10)
-        }
-        
-        print(f"Predicted: {predicted_digit} (Confidence: {confidence:.2f}%)")
+        probabilities = {str(i): float(prediction[0][i] * 100) for i in range(10)}
         
         return jsonify({
             'success': True,
-            'digit': predicted_digit,
+            'digit': int(predicted_digit),
             'confidence': round(confidence, 2),
-            'probabilities': all_predictions
+            'probabilities': probabilities
         })
     
     except Exception as e:
-<<<<<<< HEAD
-        print(f"Error during prediction: {e}")
-        import traceback
-        traceback.print_exc()
-        
         return jsonify({
             'success': False,
-            'error': f'Prediction failed: {str(e)}'
-        }), 500
+            'error': str(e)
+        })
 
 if __name__ == '__main__':
-    # Get port from environment variable (Render sets this)
-    port = int(os.environ.get('PORT', 5000))
+    # Train the model once when the app starts
+    print("=" * 50)
+    print("INITIALIZING DIGIT RECOGNITION APP")
+    print("=" * 50)
+    train_model_once()
+    print("=" * 50)
+    print("Model ready! Starting Flask server...")
+    print("=" * 50)
     
-    print("\n" + "="*60)
-    print("Starting Flask Application")
-    print("="*60)
-    print(f"Server running on port: {port}")
-    print("Press CTRL+C to quit")
-    print("="*60 + "\n")
-    
-=======
-        print(f"Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
->>>>>>> f5b64e03120ab29aa370ac01613f8149112314b4
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(debug=False, host='0.0.0.0', port=5000)
