@@ -15,10 +15,17 @@ def load_model_once():
     global model
     
     try:
+        print("=" * 50)
+        print("INITIALIZING DIGIT RECOGNITION APP")
+        print("=" * 50)
         print("Loading pre-trained model...")
+        
         model_path = 'digit_model.h5'
         
         if not os.path.exists(model_path):
+            print(f"ERROR: Model file not found at: {model_path}")
+            print(f"Current directory: {os.getcwd()}")
+            print(f"Files in directory: {os.listdir('.')}")
             raise FileNotFoundError(f"Model file not found: {model_path}")
         
         model = keras.models.load_model(model_path)
@@ -28,11 +35,21 @@ def load_model_once():
         test_input = np.zeros((1, 28, 28, 1))
         _ = model.predict(test_input, verbose=0)
         print("Model test prediction successful!")
+        print("=" * 50)
+        print("Model ready! Application started.")
+        print("=" * 50)
         
         return model
     except Exception as e:
-        print(f"Error loading model: {str(e)}")
+        print(f"ERROR loading model: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise e
+
+# Load model when the module is imported (before Gunicorn forks workers)
+print("Starting application initialization...")
+load_model_once()
+print("Application initialization complete!")
 
 def preprocess_image(image_data):
     """Enhanced preprocessing for better accuracy"""
@@ -75,10 +92,10 @@ def preprocess_image(image_data):
         h, w = digit.shape
         if h > w:
             new_h = 20
-            new_w = int(20 * w / h)
+            new_w = int(20 * w / h) if w > 0 else 20
         else:
             new_w = 20
-            new_h = int(20 * h / w)
+            new_h = int(20 * h / w) if h > 0 else 20
         
         digit_resized = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
         
@@ -95,6 +112,8 @@ def preprocess_image(image_data):
         return final_img
     except Exception as e:
         print(f"Error in preprocessing: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise e
 
 @app.route('/')
@@ -105,14 +124,21 @@ def index():
 def predict():
     try:
         if model is None:
+            print("ERROR: Model is None when trying to predict")
             return jsonify({
                 'success': False,
-                'error': 'Model not loaded. Please refresh the page.'
+                'error': 'Model not loaded. Please contact administrator.'
             })
         
         # Get image data from request
         data = request.get_json()
-        image_data = data['image']
+        image_data = data.get('image')
+        
+        if not image_data:
+            return jsonify({
+                'success': False,
+                'error': 'No image data received'
+            })
         
         # Preprocess the image
         processed_image = preprocess_image(image_data)
@@ -125,6 +151,8 @@ def predict():
         # Get all probabilities
         probabilities = {str(i): float(prediction[0][i] * 100) for i in range(10)}
         
+        print(f"Prediction successful: digit={predicted_digit}, confidence={confidence:.2f}%")
+        
         return jsonify({
             'success': True,
             'digit': int(predicted_digit),
@@ -134,26 +162,14 @@ def predict():
     
     except Exception as e:
         print(f"Error in prediction: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
         })
 
 if __name__ == '__main__':
-    # Load the model once when the app starts
-    print("=" * 50)
-    print("INITIALIZING DIGIT RECOGNITION APP")
-    print("=" * 50)
-    
-    try:
-        load_model_once()
-        print("=" * 50)
-        print("Model ready! Starting Flask server...")
-        print("=" * 50)
-    except Exception as e:
-        print(f"Failed to load model: {str(e)}")
-        print("Application will start but predictions will fail.")
-    
-    # Get port from environment variable
+    # This block is only for local development
     port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    app.run(debug=True, host='0.0.0.0', port=port)
