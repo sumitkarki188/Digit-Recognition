@@ -3,153 +3,99 @@ import numpy as np
 import cv2
 import base64
 from tensorflow import keras
-from tensorflow.keras import layers
-import tensorflow as tf
+import os
 
 app = Flask(__name__)
 
-# Global variable to store the trained model
+# Global variable to store the loaded model
 model = None
 
-def train_model_once():
-    """Train a CNN model once when the application starts"""
+def load_model_once():
+    """Load the pre-trained model once when the application starts"""
     global model
     
-    print("Loading MNIST dataset...")
-    # Load MNIST dataset
-    (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-    
-    # Preprocess the data - reshape for CNN (add channel dimension)
-    x_train = x_train.reshape(-1, 28, 28, 1).astype('float32') / 255.0
-    x_test = x_test.reshape(-1, 28, 28, 1).astype('float32') / 255.0
-    
-    # Create CNN model for better accuracy
-    print("Building CNN architecture...")
-    model = keras.Sequential([
-        # First Convolutional Block
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
-        layers.BatchNormalization(),
-        layers.Conv2D(32, (3, 3), activation='relu'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
+    try:
+        print("Loading pre-trained model...")
+        model_path = 'digit_model.h5'
         
-        # Second Convolutional Block
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.BatchNormalization(),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.BatchNormalization(),
-        layers.MaxPooling2D((2, 2)),
-        layers.Dropout(0.25),
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found: {model_path}")
         
-        # Dense Layers
-        layers.Flatten(),
-        layers.Dense(256, activation='relu'),
-        layers.BatchNormalization(),
-        layers.Dropout(0.5),
-        layers.Dense(128, activation='relu'),
-        layers.BatchNormalization(),
-        layers.Dropout(0.5),
-        layers.Dense(10, activation='softmax')
-    ])
-    
-    model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=0.001),
-        loss='sparse_categorical_crossentropy',
-        metrics=['accuracy']
-    )
-    
-    print("Training CNN model... This will take a few minutes.")
-    # Train the model with data augmentation
-    datagen = keras.preprocessing.image.ImageDataGenerator(
-        rotation_range=10,
-        width_shift_range=0.1,
-        height_shift_range=0.1,
-        zoom_range=0.1
-    )
-    
-    datagen.fit(x_train)
-    
-    model.fit(
-        datagen.flow(x_train, y_train, batch_size=128),
-        epochs=10,
-        validation_data=(x_test, y_test),
-        verbose=1
-    )
-    
-    # Evaluate the model
-    test_loss, test_accuracy = model.evaluate(x_test, y_test, verbose=0)
-    print(f"Model trained! Test accuracy: {test_accuracy*100:.2f}%")
-    
-    return model
+        model = keras.models.load_model(model_path)
+        print("Model loaded successfully!")
+        
+        # Test the model
+        test_input = np.zeros((1, 28, 28, 1))
+        _ = model.predict(test_input, verbose=0)
+        print("Model test prediction successful!")
+        
+        return model
+    except Exception as e:
+        print(f"Error loading model: {str(e)}")
+        raise e
 
 def preprocess_image(image_data):
     """Enhanced preprocessing for better accuracy"""
-    # Decode base64 image
-    image_data = image_data.split(',')[1]
-    image_bytes = base64.b64decode(image_data)
-    
-    # Convert to numpy array
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
-    
-    # Apply Gaussian blur to reduce noise
-    img = cv2.GaussianBlur(img, (5, 5), 0)
-    
-    # Apply adaptive thresholding for better binarization
-    img = cv2.adaptiveThreshold(
-        img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-        cv2.THRESH_BINARY_INV, 11, 2
-    )
-    
-    # Find contours to get the digit bounding box
-    contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    if contours:
-        # Get the largest contour (assumed to be the digit)
-        largest_contour = max(contours, key=cv2.contourArea)
-        x, y, w, h = cv2.boundingRect(largest_contour)
+    try:
+        # Decode base64 image
+        image_data = image_data.split(',')[1]
+        image_bytes = base64.b64decode(image_data)
         
-        # Add padding
-        padding = 20
-        x = max(0, x - padding)
-        y = max(0, y - padding)
-        w = min(img.shape[1] - x, w + 2 * padding)
-        h = min(img.shape[0] - y, h + 2 * padding)
+        # Convert to numpy array
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
         
-        # Crop the digit
-        digit = img[y:y+h, x:x+w]
-    else:
-        digit = img
-    
-    # Resize to fit in 20x20 box while maintaining aspect ratio
-    h, w = digit.shape
-    if h > w:
-        new_h = 20
-        new_w = int(20 * w / h)
-    else:
-        new_w = 20
-        new_h = int(20 * h / w)
-    
-    digit_resized = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
-    
-    # Create 28x28 image with the digit centered
-    final_img = np.zeros((28, 28), dtype=np.uint8)
-    y_offset = (28 - new_h) // 2
-    x_offset = (28 - new_w) // 2
-    final_img[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = digit_resized
-    
-    # Apply morphological operations to clean the image
-    kernel = np.ones((2, 2), np.uint8)
-    final_img = cv2.morphologyEx(final_img, cv2.MORPH_CLOSE, kernel)
-    
-    # Normalize
-    final_img = final_img.astype('float32') / 255.0
-    
-    # Reshape for CNN (add batch and channel dimensions)
-    final_img = final_img.reshape(1, 28, 28, 1)
-    
-    return final_img
+        # Apply Gaussian blur to reduce noise
+        img = cv2.GaussianBlur(img, (5, 5), 0)
+        
+        # Apply adaptive thresholding
+        img = cv2.adaptiveThreshold(
+            img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY_INV, 11, 2
+        )
+        
+        # Find contours
+        contours, _ = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if contours:
+            largest_contour = max(contours, key=cv2.contourArea)
+            x, y, w, h = cv2.boundingRect(largest_contour)
+            
+            padding = 20
+            x = max(0, x - padding)
+            y = max(0, y - padding)
+            w = min(img.shape[1] - x, w + 2 * padding)
+            h = min(img.shape[0] - y, h + 2 * padding)
+            
+            digit = img[y:y+h, x:x+w]
+        else:
+            digit = img
+        
+        # Resize maintaining aspect ratio
+        h, w = digit.shape
+        if h > w:
+            new_h = 20
+            new_w = int(20 * w / h)
+        else:
+            new_w = 20
+            new_h = int(20 * h / w)
+        
+        digit_resized = cv2.resize(digit, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        
+        # Center in 28x28
+        final_img = np.zeros((28, 28), dtype=np.uint8)
+        y_offset = (28 - new_h) // 2
+        x_offset = (28 - new_w) // 2
+        final_img[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = digit_resized
+        
+        # Normalize
+        final_img = final_img.astype('float32') / 255.0
+        final_img = final_img.reshape(1, 28, 28, 1)
+        
+        return final_img
+    except Exception as e:
+        print(f"Error in preprocessing: {str(e)}")
+        raise e
 
 @app.route('/')
 def index():
@@ -158,6 +104,12 @@ def index():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
+        if model is None:
+            return jsonify({
+                'success': False,
+                'error': 'Model not loaded. Please refresh the page.'
+            })
+        
         # Get image data from request
         data = request.get_json()
         image_data = data['image']
@@ -181,21 +133,27 @@ def predict():
         })
     
     except Exception as e:
+        print(f"Error in prediction: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
         })
 
 if __name__ == '__main__':
+    # Load the model once when the app starts
     print("=" * 50)
     print("INITIALIZING DIGIT RECOGNITION APP")
     print("=" * 50)
-    train_model_once()
-    print("=" * 50)
-    print("Model ready! Starting Flask server...")
-    print("=" * 50)
     
-    # Get port from environment variable (Render uses this)
-    import os
+    try:
+        load_model_once()
+        print("=" * 50)
+        print("Model ready! Starting Flask server...")
+        print("=" * 50)
+    except Exception as e:
+        print(f"Failed to load model: {str(e)}")
+        print("Application will start but predictions will fail.")
+    
+    # Get port from environment variable
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=False, host='0.0.0.0', port=port)
