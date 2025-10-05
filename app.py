@@ -3,12 +3,44 @@ import numpy as np
 import cv2
 import base64
 from tensorflow import keras
+from tensorflow.keras import layers
+import tensorflow as tf
 import os
 
 app = Flask(__name__)
 
 # Global variable to store the loaded model
 model = None
+
+def create_model_architecture():
+    """Create the model architecture"""
+    input_layer = keras.Input(shape=(28, 28, 1), name='digit_input')
+    
+    x = layers.Conv2D(32, (3, 3), activation='relu', name='conv2d_1')(input_layer)
+    x = layers.BatchNormalization(name='batch_norm_1')(x)
+    x = layers.Conv2D(32, (3, 3), activation='relu', name='conv2d_2')(x)
+    x = layers.BatchNormalization(name='batch_norm_2')(x)
+    x = layers.MaxPooling2D((2, 2), name='maxpool_1')(x)
+    x = layers.Dropout(0.25, name='dropout_1')(x)
+    
+    x = layers.Conv2D(64, (3, 3), activation='relu', name='conv2d_3')(x)
+    x = layers.BatchNormalization(name='batch_norm_3')(x)
+    x = layers.Conv2D(64, (3, 3), activation='relu', name='conv2d_4')(x)
+    x = layers.BatchNormalization(name='batch_norm_4')(x)
+    x = layers.MaxPooling2D((2, 2), name='maxpool_2')(x)
+    x = layers.Dropout(0.25, name='dropout_2')(x)
+    
+    x = layers.Flatten(name='flatten')(x)
+    x = layers.Dense(256, activation='relu', name='dense_1')(x)
+    x = layers.BatchNormalization(name='batch_norm_5')(x)
+    x = layers.Dropout(0.5, name='dropout_3')(x)
+    x = layers.Dense(128, activation='relu', name='dense_2')(x)
+    x = layers.BatchNormalization(name='batch_norm_6')(x)
+    x = layers.Dropout(0.5, name='dropout_4')(x)
+    output_layer = layers.Dense(10, activation='softmax', name='digit_output')(x)
+    
+    model = keras.Model(inputs=input_layer, outputs=output_layer, name='digit_recognition_model')
+    return model
 
 def load_model_once():
     """Load the pre-trained model once when the application starts"""
@@ -20,16 +52,31 @@ def load_model_once():
         print("=" * 50)
         print("Loading pre-trained model...")
         
-        model_path = 'digit_model.h5'
+        # Try to load SavedModel first
+        savedmodel_path = 'digit_model_savedmodel'
+        weights_path = 'digit_model_weights.h5'
         
-        if not os.path.exists(model_path):
-            print(f"ERROR: Model file not found at: {model_path}")
+        if os.path.exists(savedmodel_path):
+            print("Loading SavedModel...")
+            model = tf.keras.models.load_model(savedmodel_path)
+            print("SavedModel loaded successfully!")
+        elif os.path.exists(weights_path):
+            print("SavedModel not found, loading weights instead...")
+            # Create model architecture and load weights
+            model = create_model_architecture()
+            model.compile(
+                optimizer=keras.optimizers.Adam(learning_rate=0.001),
+                loss='sparse_categorical_crossentropy',
+                metrics=['accuracy']
+            )
+            model.load_weights(weights_path)
+            print("Model weights loaded successfully!")
+        else:
+            print(f"ERROR: No model files found!")
+            print(f"Looking for: {savedmodel_path} or {weights_path}")
             print(f"Current directory: {os.getcwd()}")
             print(f"Files in directory: {os.listdir('.')}")
-            raise FileNotFoundError(f"Model file not found: {model_path}")
-        
-        model = keras.models.load_model(model_path)
-        print("Model loaded successfully!")
+            raise FileNotFoundError("No model files found")
         
         # Test the model
         test_input = np.zeros((1, 28, 28, 1))
@@ -46,7 +93,7 @@ def load_model_once():
         traceback.print_exc()
         raise e
 
-# Load model when the module is imported (before Gunicorn forks workers)
+# Load model when the module is imported
 print("Starting application initialization...")
 load_model_once()
 print("Application initialization complete!")
@@ -173,3 +220,4 @@ if __name__ == '__main__':
     # This block is only for local development
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, host='0.0.0.0', port=port)
+    
