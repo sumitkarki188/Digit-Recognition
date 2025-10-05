@@ -18,7 +18,7 @@ A deep learning web application that recognizes handwritten digits (0-9) using a
 
 ## 🚀 Demo
 
-**Live Demo**: [https://your-app-name.onrender.com](https://your-app-name.onrender.com)
+**Live Demo**: [https://your-app-name.onrender.com](https://digit-recognition-o4mx.onrender.com/)
 
 ## 🛠️ Technologies Used
 
